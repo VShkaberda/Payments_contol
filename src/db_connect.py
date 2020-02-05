@@ -75,7 +75,8 @@ class DBConnect(object):
 
     @monitor_network_state
     def create_request(self, userID, mvz, office, categoryID, contragent, csp,
-                       plan_date, sumtotal, nds, text, approval, is_cashless):
+                       plan_date, sumtotal, nds, text, approval, is_cashless,
+                       payconditionsID):
         """ Executes procedure that creates new request.
         """
         query = '''
@@ -90,12 +91,14 @@ class DBConnect(object):
                                     @Tax = ?,
                                     @CSP = ?,
                                     @Approval = ?,
-                                    @is_cashless = ?
+                                    @is_cashless = ?,
+                                    @PayConditionsID = ?
             '''
         try:
             self.__cursor.execute(query, userID, mvz, office, categoryID,
                                   contragent, plan_date, text,
-                                  sumtotal, nds, csp, approval, is_cashless)
+                                  sumtotal, nds, csp, approval, is_cashless,
+                                  payconditionsID)
             request_allowed = self.__cursor.fetchone()[0]
             self.__db.commit()
             return request_allowed
@@ -107,7 +110,7 @@ class DBConnect(object):
         """ Returns information about current user based on ORIGINAL_LOGIN().
         """
         query = '''
-        select UserID, ShortUserName, AccessType, isSuperUser, GroupID
+        select UserID, ShortUserName, AccessType, isSuperUser, GroupID, PayConditionsID
         from payment.People
         where UserLogin = right(ORIGINAL_LOGIN(), len(ORIGINAL_LOGIN()) - charindex( '\\' , ORIGINAL_LOGIN()))
         '''
@@ -149,6 +152,15 @@ class DBConnect(object):
         query = "exec payment.get_categories @isSuperUser = ?"
         self.__cursor.execute(query, user_info.isSuperUser)
         return self.__cursor.fetchall()
+
+    @monitor_network_state
+    def get_pay_conditions(self):
+        """ Returns list of available pay_conditions for current user.
+        """
+        query = "exec payment.get_pay_conditions"
+        self.__cursor.execute(query)
+        return self.__cursor.fetchall()
+
 
     @monitor_network_state
     def get_info_to_alter_payment(self, paymentID):
@@ -207,27 +219,30 @@ class DBConnect(object):
         """
         query = '''
         select pl.ID as ID, pl.UserID as InitiatorID,
-           'ЛГ-' + replace(convert(varchar, date_created, 102),'.','') + '_' + cast(pl.RealID as varchar(7)) as Num,
-           pp.ShortUserName, cast(date_created as date) as date_created,
-           cast(date_created as smalldatetime) as datetime_created,
-           isnull(CSP, '') as CSP, isnull(obj.MVZsap, '') as MVZsap,
-           isnull(co.FullName, 'ТехМВЗ') as FullName, obj.ServiceName,
-           cat.CategoryName, isnull(Contragent, '') as Contragent, date_planed,
-           SumNoTax, cast(SumNoTax * ((100 + Tax) / 100.0) as numeric(11, 2)),
-           IIF(pl.is_cashless = 0, 'наличный', 'безналичный') as is_cashless,
-           p.ValueName as StatusName, p.ValueDescription, pl.Description, appr.UserID,
-           case when pl.StatusID = 1 then isnull(pappr.ShortUserName, '') else '' end as approval
+        'ЛГ-' + replace(convert(varchar, date_created, 102),'.','') + '_' + cast(pl.RealID as varchar(7)) as Num,
+        pp.ShortUserName, cast(date_created as date) as date_created,
+        cast(date_created as smalldatetime) as datetime_created,
+        isnull(CSP, '') as CSP, isnull(obj.MVZsap, '') as MVZsap,
+        isnull(co.FullName, 'ТехМВЗ') as FullName, obj.ServiceName,
+        cat.CategoryName, isNULL(p2.ValueDescription, '') as PayConditions, isnull(Contragent, '') as Contragent, 
+        date_planed, SumNoTax, cast(SumNoTax * ((100 + Tax) / 100.0) as numeric(11, 2)),
+        IIF(pl.is_cashless = 0, 'наличный', 'безналичный') as is_cashless,
+        p.ValueName as StatusName, p.ValueDescription, pl.Description, appr.UserID,
+        case when pl.StatusID = 1 then isnull(pappr.ShortUserName, '') else '' end as approval
         from payment.PaymentsList pl
         join payment.ListObjects obj on pl.ObjectID = obj.ID
         join payment.ListCategories cat on pl.CategoryID = cat.ID
         left join LogisticFinance.BTool.aid_CostObject_Detail co on co.SAPMVZ = obj.MVZsap
         join payment.People pp on pl.UserID = pp.UserID
-        join LogisticFinance.dbo.GlobalParamsLines p on pl.StatusID = p.idParamsLines
-                                    and p.idParams = 2
-                                    and p.Enabled = 1
+        left join LogisticFinance.dbo.GlobalParamsLines p on pl.StatusID = p.idParamsLines
+                                and p.idParams = 2
+                                and p.Enabled = 1
+        left join LogisticFinance.dbo.GlobalParamsLines p2 on pl.PayConditionsID = p2.idParamsLines
+                                and p2.idParams = 7
+                                and p2.Enabled = 1
         -- approvals
         left join payment.PaymentsApproval appr on pl.ID = appr.PaymentID
-                                           and appr.is_active_approval = 1
+                                        and appr.is_active_approval = 1
         left join payment.People pappr on appr.UserID = pappr.UserID
         where 1=1
         '''

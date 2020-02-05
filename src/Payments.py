@@ -75,7 +75,7 @@ def main():
     check_meta_update()
     # Check connection to db and permission to work with app
     try:
-        with DBConnect(server='s-kv-center-s59', db='LogisticFinance') as sql:
+        with DBConnect(server='s-kv-center-s59', db='AnalyticReports') as sql:
             access_permitted = sql.access_check()
             if not access_permitted:
                 tkp.AccessError()
@@ -83,17 +83,19 @@ def main():
 
             UserInfo = namedtuple('UserInfo',
                 ['UserID', 'ShortUserName', 'AccessType', 'isSuperUser',
-                 'GroupID']
+                 'GroupID', 'PayConditionsID']
             )
 
             # load references
             user_info = UserInfo(*sql.get_user_info())
+            # user_info = UserInfo(24, 'TestName', 2, 1, None, 2)
             # Restriction: users in approvals_for_first_stage
             # should have different names to be distinguished
             refs = {'connection': sql,
                     'user_info': user_info,
                     'mvz': sql.get_MVZ(user_info),
                     'categories': sql.get_categories(user_info),
+                    'pay_conditions': sql.get_pay_conditions(),
                     'allowed_initiators':
                         sql.get_allowed_initiators(user_info.UserID,
                                                    user_info.AccessType,
