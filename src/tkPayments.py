@@ -404,7 +404,6 @@ class CreateForm(PaymentFrame):
         self.approvals_for_first_stage = dict(approvals_for_first_stage)
         # Top Frame with description and user name
         top = tk.Frame(self, name='top_cf', padx=5)
-
         self.main_label = tk.Label(top, text='Форма создания заявки на согласование',
                               padx=10, font=('Arial', 8, 'bold'))
 
@@ -414,7 +413,6 @@ class CreateForm(PaymentFrame):
         self.limit_sum = tk.Label(top, text='', font=('Arial', 8, 'bold'))
 
         self.pay_conditions = dict(pay_conditions)
-
         # Choose default pay conditions for current user
         for key, value in self.pay_conditions.items():
             if value == self.PayConditionsDefaultID:
@@ -481,25 +479,23 @@ class CreateForm(PaymentFrame):
 
         self._row3_pack()
 
-        # Fourth Fill Frame with (is_cashless)
+        # Fourth Fill Frame with (cashless)
         row4_cf = tk.Frame(self, name='row4_cf', padx=15)
 
         self.cashless_label = tk.Label(row4_cf, text='Вид платежа', padx=10)
-        self.is_cashless = tk.IntVar()
-        self.is_cashless.set(1)
-        self.cashless_radiobutton0 = ttk.Radiobutton(row4_cf, text="наличный",
-                                      variable=self.is_cashless, value=0)
-        self.cashless_radiobutton1 = ttk.Radiobutton(row4_cf, text="безналичный",
-                                      variable=self.is_cashless, value=1)
-
+        self.cashless = ttk.Combobox(row4_cf, width=14, state='readonly')
+        self.cashless['values'] = ['наличный','безналичный']
+        self.cashless.current(1)
         # Pay conditions variances with fill value as default for user
         self.pay_conditions_label = tk.Label(row4_cf, text='Условия оплаты', padx=10)
-        self.pay_conditions_box = ttk.Combobox(row4_cf, width=20,
+        self.pay_conditions_box = ttk.Combobox(row4_cf, width=15,
                                                state='readonly')
         self.pay_conditions_box['values'] = list(self.pay_conditions)
         self.pay_conditions_box.current(list(self.pay_conditions).
                                         index(self.PayConditionsDefault))
-
+        self.initiator_label = tk.Label(row4_cf, text='Инициатор')
+        self.initiator_label_name = tk.Entry(row4_cf, width=20)
+        sc = tk.Entry(row4_cf, width=15)
 
         # Text Frame
         text_cf = ttk.LabelFrame(self, text=' Описание заявки ', name='text_cf')
@@ -567,7 +563,7 @@ class CreateForm(PaymentFrame):
         self.desc_text.delete("1.0", tk.END)
         self.plan_date_entry.set_date(datetime.now())
         self.approval_box.set('')
-        self.is_cashless.set(1)
+        self.cashless.set('безналичный')
 
     def _convert_date(self, date, output=None):
         """ Take date and convert it into output format.
@@ -585,6 +581,7 @@ class CreateForm(PaymentFrame):
             return dat.strftime(output)
         return dat
 
+
     def _create_request(self):
         messagetitle = 'Создание заявки'
         sumtotal = float(self.sumtotal.get_float_form()
@@ -592,6 +589,8 @@ class CreateForm(PaymentFrame):
         is_validated = self._validate_request_creation(messagetitle, sumtotal)
         if not is_validated:
             return
+
+        is_cashless = 1 if self.cashless.get() == 'безналичный' else 0
         first_approval = (self.approvals_for_first_stage[self.approval_box.get()]
                           if self.approval_box.get() else None)
         request = {'mvz': self.mvz_sap.cget('text') or None,
@@ -605,7 +604,7 @@ class CreateForm(PaymentFrame):
                    'nds':  self.nds.get(),
                    'text': self.desc_text.get("1.0", tk.END).strip(),
                    'approval': first_approval,
-                   'is_cashless': self.is_cashless.get(),
+                   'is_cashless': is_cashless,
                    'payconditionsID': self.pay_conditions[self.pay_conditions_box.get()]
                    }
         created_success = self.conn.create_request(userID=self.userID, **request)
@@ -684,10 +683,11 @@ class CreateForm(PaymentFrame):
 
     def _row4_pack(self):
         self.cashless_label.pack(side=tk.LEFT)
-        self.cashless_radiobutton0.pack(side=tk.LEFT, padx=7)
-        self.cashless_radiobutton1.pack(side=tk.LEFT, padx=7)
+        self.cashless.pack(side=tk.LEFT, padx=16)
         self.pay_conditions_label.pack(side=tk.LEFT)
         self.pay_conditions_box.pack(side=tk.LEFT, padx=5)
+        self.initiator_label.pack(side=tk.LEFT, padx=5)
+        self.initiator_label_name.pack(side=tk.LEFT, padx=5)
         self.approval_label.pack(side=tk.LEFT)
         self.approval_box.pack(side=tk.LEFT, padx=5)
 
@@ -904,7 +904,7 @@ class PreviewForm(PaymentFrame):
         # column name and width
         #self.headings=('a', 'bb', 'cccc')  # for debug
         self.headings = {'№ п/п': 30, 'ID': 0, 'InitiatorID': 0, '№ заявки': 100,
-            'Инициатор': 130, 'Дата создания': 80, 'Дата/время создания': 120,
+            'Кем создано': 130, 'Дата создания': 80, 'Дата/время создания': 120,
             'CSP':30, 'МВЗ SAP': 70, 'МВЗ': 150, 'Офис': 80, 'Категория': 80,
             'Условия оплаты':80, 'Контрагент': 60, 'Плановая дата': 90,
             'Сумма без НДС': 85, 'Сумма с НДС': 85, 'Вид платежа':0, 'Статус': 45,
@@ -1673,7 +1673,7 @@ class AlterRequest(tk.Frame):
                                          new_date, new_sum)
         if not result:
             messagebox.showerror(self.parent.title(),
-                                 'Произошла ошибка при выполении запроса')
+                                 'Произошла ошибка при выполнении запроса')
         else:
             messagebox.showinfo(self.parent.title(), 'Запрос выполнен')
             self.parentform._refresh()
