@@ -489,12 +489,12 @@ class CreateForm(PaymentFrame):
         # Pay conditions variances with fill value as default for user
         self.pay_conditions_label = tk.Label(row4_cf, text='Условия оплаты', padx=10)
         self.pay_conditions_box = ttk.Combobox(row4_cf, width=15,
-                                               state='readonly')
+                                               state='disable')
         self.pay_conditions_box['values'] = list(self.pay_conditions)
         self.pay_conditions_box.current(list(self.pay_conditions).
                                         index(self.PayConditionsDefault))
         self.initiator_label = tk.Label(row4_cf, text='Инициатор')
-        self.initiator_label_name = tk.Entry(row4_cf, width=20)
+        self.initiator_name = tk.Entry(row4_cf, width=20)
         sc = tk.Entry(row4_cf, width=15)
 
         # Text Frame
@@ -553,7 +553,7 @@ class CreateForm(PaymentFrame):
         self.mvz_current.set('')
         self.mvz_sap.config(text='')
         self.category_box.set('')
-        self.pay_conditions_box.set('')
+        self.pay_conditions_box.set('По факту')
         self.office_box.set('')
         self.office_box.configure(state="disabled")
         self.contragent_entry.delete(0, tk.END)
@@ -564,6 +564,8 @@ class CreateForm(PaymentFrame):
         self.plan_date_entry.set_date(datetime.now())
         self.approval_box.set('')
         self.cashless.set('безналичный')
+        self.initiator_name.delete(0, tk.END)
+
 
     def _convert_date(self, date, output=None):
         """ Take date and convert it into output format.
@@ -605,7 +607,9 @@ class CreateForm(PaymentFrame):
                    'text': self.desc_text.get("1.0", tk.END).strip(),
                    'approval': first_approval,
                    'is_cashless': is_cashless,
-                   'payconditionsID': self.pay_conditions[self.pay_conditions_box.get()]
+                   'payconditionsID': self.pay_conditions[
+                                                self.pay_conditions_box.get()],
+                   'initiator_name': self.initiator_name.get()
                    }
         created_success = self.conn.create_request(userID=self.userID, **request)
         if created_success == 1:
@@ -687,7 +691,7 @@ class CreateForm(PaymentFrame):
         self.pay_conditions_label.pack(side=tk.LEFT)
         self.pay_conditions_box.pack(side=tk.LEFT, padx=5)
         self.initiator_label.pack(side=tk.LEFT, padx=5)
-        self.initiator_label_name.pack(side=tk.LEFT, padx=5)
+        self.initiator_name.pack(side=tk.LEFT, padx=5)
         self.approval_label.pack(side=tk.LEFT)
         self.approval_box.pack(side=tk.LEFT, padx=5)
 
@@ -804,7 +808,7 @@ class PreviewForm(PaymentFrame):
         # First Filter Frame with (MVZ, office)
         row1_cf = tk.Frame(filterframe, name='row1_cf', padx=15)
 
-        self.initiator_label = tk.Label(row1_cf, text='Инициатор', padx=10)
+        self.initiator_label = tk.Label(row1_cf, text='Кем создано', padx=10)
         self.initiator_box = ttk.Combobox(row1_cf, width=35, state='readonly')
         self.initiator_box['values'] = self.initiators
 
@@ -904,10 +908,11 @@ class PreviewForm(PaymentFrame):
         # column name and width
         #self.headings=('a', 'bb', 'cccc')  # for debug
         self.headings = {'№ п/п': 30, 'ID': 0, 'InitiatorID': 0, '№ заявки': 100,
-            'Кем создано': 130, 'Дата создания': 80, 'Дата/время создания': 120,
-            'CSP':30, 'МВЗ SAP': 70, 'МВЗ': 150, 'Офис': 80, 'Категория': 80,
-            'Условия оплаты':80, 'Контрагент': 60, 'Плановая дата': 90,
-            'Сумма без НДС': 85, 'Сумма с НДС': 85, 'Вид платежа':0, 'Статус': 45,
+            'Кем создано': 130, 'Инициатор': 0, 'Дата создания': 80
+            , 'Дата/время создания': 120,'CSP':30, 'МВЗ SAP': 70, 'МВЗ': 150
+            , 'Офис': 80, 'Категория': 80, 'Условия оплаты':80
+            , 'Контрагент': 60, 'Плановая дата': 90, 'Сумма без НДС': 85
+            , 'Сумма с НДС': 85, 'Вид платежа':0, 'Статус': 45,
             'Статус заявки': 120, 'Описание': 120, 'ID Утверждающего': 0,
             'Утверждающий': 120}
 
@@ -1152,7 +1157,8 @@ class PreviewForm(PaymentFrame):
             self.table["displaycolumns"] = tuple(k for k in self.headings.keys()
                 if k not in ('ID', 'НДС', 'Описание', 'Дата/время создания',
                              'МВЗ', 'Категория', 'Условия оплаты', 'Вид платежа',
-                             'Статус заявки','InitiatorID', 'ID Утверждающего'))
+                             'Статус заявки','InitiatorID', 'ID Утверждающего',
+                             'Инициатор'))
             for head, width in self.headings.items():
                 self.table.heading(head, text=head, anchor=tk.CENTER)
                 self.table.column(head, width=width, anchor=tk.CENTER)

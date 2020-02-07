@@ -76,7 +76,7 @@ class DBConnect(object):
     @monitor_network_state
     def create_request(self, userID, mvz, office, categoryID, contragent, csp,
                        plan_date, sumtotal, nds, text, approval, is_cashless,
-                       payconditionsID):
+                       payconditionsID, initiator_name):
         """ Executes procedure that creates new request.
         """
         query = '''
@@ -92,13 +92,14 @@ class DBConnect(object):
                                     @CSP = ?,
                                     @Approval = ?,
                                     @is_cashless = ?,
-                                    @PayConditionsID = ?
+                                    @PayConditionsID = ?,
+                                    @initiator_name = ?
             '''
         try:
             self.__cursor.execute(query, userID, mvz, office, categoryID,
                                   contragent, plan_date, text,
                                   sumtotal, nds, csp, approval, is_cashless,
-                                  payconditionsID)
+                                  payconditionsID, initiator_name)
             request_allowed = self.__cursor.fetchone()[0]
             self.__db.commit()
             return request_allowed
@@ -110,7 +111,8 @@ class DBConnect(object):
         """ Returns information about current user based on ORIGINAL_LOGIN().
         """
         query = '''
-        select UserID, ShortUserName, AccessType, isSuperUser, GroupID, PayConditionsID
+        select UserID, ShortUserName, AccessType, isSuperUser, GroupID
+        , isNULL(PayConditionsID, 1) as PayConditionsID
         from payment.People
         where UserLogin = right(ORIGINAL_LOGIN(), len(ORIGINAL_LOGIN()) - charindex( '\\' , ORIGINAL_LOGIN()))
         '''
@@ -220,7 +222,8 @@ class DBConnect(object):
         query = '''
         select pl.ID as ID, pl.UserID as InitiatorID,
         'ЛГ-' + replace(convert(varchar, date_created, 102),'.','') + '_' + cast(pl.RealID as varchar(7)) as Num,
-        pp.ShortUserName, cast(date_created as date) as date_created,
+        pp.ShortUserName, isNULL(pl.initiator_name, '') as initiator_name
+        , cast(date_created as date) as date_created,
         cast(date_created as smalldatetime) as datetime_created,
         isnull(CSP, '') as CSP, isnull(obj.MVZsap, '') as MVZsap,
         isnull(co.FullName, 'ТехМВЗ') as FullName, obj.ServiceName,
